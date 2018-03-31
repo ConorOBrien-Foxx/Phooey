@@ -83,7 +83,7 @@ void Tokenizer::step() {
         build += current();
         build += next();
         
-        while(current() != '"') {
+        while(current() != '"' && running()) {
             build += next();
         }
         
