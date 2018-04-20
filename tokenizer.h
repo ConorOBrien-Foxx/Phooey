@@ -15,6 +15,7 @@ enum PayloadType { NONE, NORMAL, SPECIAL };
 enum SpecialPayload {
     INT,
     CHAR,
+    STACK
 };
 
 struct Instruction {
@@ -38,30 +39,38 @@ std::ostream& operator<<(std::ostream&, const Instruction&);
 
 class Tokenizer {
     std::map<char, std::pair<size_t, Source>> VALID_OPS = {
-        { '$', { 1, { Source::ARRAY,    0 } } },
-        { '~', { 1, { Source::NONE,     0 } } },
-        { '"', { 0, { Source::NONE,     0 } } },
-        { '<', { 0, { Source::CONSTANT, 1 } } },
-        { '>', { 0, { Source::CONSTANT, 1 } } },
-        { '@', { 0, { Source::ARRAY,    0 } } },
-        { '&', { 0, { Source::STACK,    0 } } },
-        { '#', { 0, { Source::ARRAY,    0 } } },
-        { '(', { 0, { Source::CONSTANT, 0 } } },
-        { ')', { 0, { Source::STACK,    0 } } },
-        { '?', { 0, { Source::ARRAY,    0 } } },
+        { '$',  { 1, { Source::ARRAY,    0 } } },
+        { '~',  { 1, { Source::NONE,     0 } } },
+        { '"',  { 0, { Source::NONE,     0 } } },
+        { '<',  { 0, { Source::CONSTANT, 1 } } },
+        { '>',  { 0, { Source::CONSTANT, 1 } } },
+        { '@',  { 0, { Source::ARRAY,    0 } } },
+        { '&',  { 0, { Source::STACK,    0 } } },
+        { '#',  { 0, { Source::ARRAY,    0 } } },
+        { '(',  { 0, { Source::CONSTANT, 0 } } },
+        { ')',  { 0, { Source::NONE,     0 } } },
+        { '{',  { 0, { Source::CONSTANT, 0 } } },
+        { '}',  { 0, { Source::NONE,     0 } } },
+        { '[',  { 0, { Source::CONSTANT, 0 } } },
+        { ']',  { 0, { Source::NONE,     0 } } },
+        { '?',  { 0, { Source::ARRAY,    0 } } },
         
         // arithmetic operators
-        { '+', { 0, { Source::STACK,    0 } } },
-        { '-', { 0, { Source::STACK,    0 } } },
-        { '/', { 0, { Source::STACK,    0 } } },
-        { '*', { 0, { Source::STACK,    0 } } },
-        { '%', { 0, { Source::STACK,    0 } } },
-        { '^', { 0, { Source::STACK,    0 } } },
+        { '+',  { 0, { Source::STACK,    0 } } },
+        { '-',  { 0, { Source::STACK,    0 } } },
+        { ';',  { 0, { Source::STACK,    0 } } },
+        { '/',  { 0, { Source::STACK,    0 } } },
+        { '\\', { 0, { Source::STACK,    0 } } },
+        { '*',  { 0, { Source::STACK,    0 } } },
+        { '%',  { 0, { Source::STACK,    0 } } },
+        { '^',  { 0, { Source::STACK,    0 } } },
+        { '=',  { 0, { Source::STACK,    0 } } },
     };
     
     std::map<char, SpecialPayload> SPECIAL_PAYLOADS = {
-        { '.', INT },
-        { ':', CHAR },
+        { '.', SpecialPayload::INT },
+        { ':', SpecialPayload::CHAR },
+        { '!', SpecialPayload::STACK },
     };
     
     std::string code;

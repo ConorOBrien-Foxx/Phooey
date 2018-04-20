@@ -95,6 +95,8 @@ class Phooey {
     Tape tape;
     std::list<int64_t> stack = {};
     std::list<CallStackInfo> call_stack = {};
+    std::map<size_t, size_t> if_jumps = {};
+    std::map<size_t, size_t> loop_jumps = {};
     std::string code;
     std::vector<Instruction> ops;
     size_t pointer = 0;
@@ -117,7 +119,7 @@ class Phooey {
         call_stack.push_back(CallStackInfo { source, compare });
     }
     
-    int64_t getOperand(Instruction);
+    int64_t get_operand(Instruction&);
     int64_t pop();
     void push(int64_t);
     
@@ -137,6 +139,41 @@ Phooey::Phooey(std::string code) : code(code) {
     
     ops = temp.tokenize();
     
+    // std::cout << ">>> TOKEN DUMP <<<" << std::endl;
+    // temp.debug();
+    // std::cout << ">>> END TOKEN DUMP <<<" << std::endl << std::endl;
+    
+    std::list<size_t> if_stack = {};
+    std::list<size_t> jump_stack = {};
+    for(size_t i = 0; i < ops.size(); i++) {
+        Instruction op = ops[i];
+        
+        if(op.raw == "{") {
+            if_stack.push_back(i);
+        }
+        else if(op.raw == "}") {
+            size_t start = if_stack.back();
+            
+            // if_jumps[i] = start;
+            if_jumps[start] = i;
+            
+            if_stack.pop_back();
+        }
+        
+        else if(op.raw == "[") {
+            jump_stack.push_back(i);
+        }
+        else if(op.raw == "]") {
+            size_t start = jump_stack.back();
+            
+            loop_jumps[start] = i;
+            loop_jumps[i] = start - 1;
+            
+            jump_stack.pop_back();
+        }
+    }
+    
+    // read if locations
     // temp.debug();
 }
 
@@ -173,7 +210,7 @@ char read_char() {
     return read_char(std::cin);
 }
 
-int64_t Phooey::getOperand(Instruction op) {
+int64_t Phooey::get_operand(Instruction &op) {
     if(op.payload_type == PayloadType::NORMAL) {
         return op.payload.normal;
     }
@@ -185,7 +222,13 @@ int64_t Phooey::getOperand(Instruction op) {
             case SpecialPayload::CHAR:
                 return read_char();
             
+            case SpecialPayload::STACK:
+                op.payload_type = PayloadType::NORMAL;
+                op.payload.normal = pop();
+                return op.payload.normal;
+            
             default:
+                std::cerr << "Unhandled SpecialPayload" << std::endl;
                 return 42;
         }
     }
@@ -210,10 +253,11 @@ int64_t Phooey::getOperand(Instruction op) {
 }
 
 void Phooey::step() {
-    Instruction cur = current();
+    Instruction &cur = current();
     char id = cur.raw[0];
-    int64_t op = getOperand(cur);
+    int64_t op = get_operand(cur);
     
+    // handle the operator
     if(id == '"') {
         std::cout << cur.raw.substr(1, cur.raw.size() - 2);
     }
@@ -229,8 +273,17 @@ void Phooey::step() {
     else if(id == '-') {
         tape.current() -= op;
     }
+    else if(id == ';') {
+        tape.current() = op - tape.current();
+    }
+    else if(id == '=') {
+        tape.current() = tape.current() == op;
+    }
     else if(id == '/') {
         tape.current() /= op;
+    }
+    else if(id == '\\') {
+        tape.current() = op / tape.current();
     }
     else if(id == '%') {
         tape.current() %= op;
@@ -253,9 +306,6 @@ void Phooey::step() {
     else if(id == '(') {
         add_call(pointer, op);
     }
-    else if(id == '?') {
-        debug();
-    }
     else if(id == ')') {
         CallStackInfo info = call_stack.back();
         if(tape.current() != info.compare) {
@@ -263,6 +313,27 @@ void Phooey::step() {
         }
         else {
             call_stack.pop_back();
+        }
+    }
+    else if(id == '?') {
+        debug();
+    }
+    else if(id == '{') {
+        if(tape.current() != op) {
+            pointer = if_jumps[pointer];
+        }
+    }
+    else if(id == '}') {
+        // no-op
+    }
+    else if(id == '[') {
+        if(tape.current() == op) {
+            pointer = loop_jumps[pointer];
+        }
+    }
+    else if(id == ']') {
+        if(tape.current() != op) {
+            pointer = loop_jumps[pointer];
         }
     }
     else if(id == '$') {
@@ -286,31 +357,38 @@ void Phooey::step() {
         char mode = tolower(original);
         
         int64_t res = 0;
+        bool modify = true;
         
         // is there input left?
         if(mode == 'i') {
             res = !std::cin.eof();
         }
         // random integer
-        else if(mode == 'r') {
+        else if(mode == '?') {
             res = random_between(0, op);
         }
         // random integer 2
-        else if(mode == 's') {
+        else if(mode == 'r') {
             res = random_between(tape.current(), op);
+        }
+        else if(mode == 's') {
+            sleep(op);
+            modify = false;
         }
         // current time, in milliseconds
         else if(mode == 't') {
             res = time_since_epoch();
         }
         
-        // lowercase -> tape
-        if(mode == original) {
-            tape.current() = res;
-        }
-        // uppercase -> stack
-        else {
-            push(res);
+        if(modify) {
+            // lowercase -> update tape
+            if(mode == original) {
+                tape.current() = res;
+            }
+            // uppercase -> push to stack
+            else {
+                push(res);
+            }
         }
     }
     else {
