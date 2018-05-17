@@ -87,7 +87,9 @@ void Tokenizer::step() {
             build += next();
         }
         
-        next();
+        if(running()) {
+            next();
+        }
     }
     else {
         int64_t consume = it->second.first;
