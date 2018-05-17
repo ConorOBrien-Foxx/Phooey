@@ -73,7 +73,7 @@ void Tokenizer::step() {
         return;
     }
     
-    Instruction res;    
+    Instruction res;
     std::string build = "";
     res.source = it->second.second;
     res.payload.normal = 0;
@@ -83,7 +83,7 @@ void Tokenizer::step() {
         build += current();
         build += next();
         
-        while(current() != '"' && running()) {
+        while(running() && current() != '"') {
             build += next();
         }
         
